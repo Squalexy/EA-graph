@@ -56,8 +56,10 @@ void statistic1(){
         min_amount_time += graph[first_node].second;
 
         priority_queue <int, vector<int>, greater<int>> pQ(nodes[first_node].begin(), nodes[first_node].end());
+        for (int node: nodes[first_node]) visited[node] = true;
 
         while (!pQ.empty()){
+
             int node = pQ.top();
 
             if (parent_nodes[node].size() > 1){
@@ -83,6 +85,7 @@ void statistic1(){
         }
 
         cout << min_amount_time << endl;
+        for (int node: nodes_order) cout << node << endl;
     
         return;
 }
@@ -105,19 +108,19 @@ void statistic3(){
     
     queue <int> Q;
     Q.push(first_node);
+    visited[first_node] = true;
 
     while (!Q.empty()){
 
         int node = Q.front();
-        int visited_parents = 0;
+        long unsigned int visited_parents = 0;
+        int aux_node;
  
         if (parent_nodes[node].size() > 1){
             
             for (int parent: parent_nodes[node]){
                 if (!visited[parent]) {
                     visited[node] = false;
-                    Q.pop();
-                    node = Q.front();
                 }
 
                 else if (visited[parent]) visited_parents ++;
@@ -130,7 +133,15 @@ void statistic3(){
             if (Q.size() == 1) bottlenecks.push_back(node);
         }
 
-        Q.pop();
+        if (visited[node] == false){
+            aux_node = node;
+            Q.pop();
+            node = Q.front();
+            Q.push(aux_node);
+            continue;
+        }
+
+        else Q.pop();
 
         for (auto next_node: nodes[node]){
             if (!visited[next_node]) {
@@ -139,8 +150,6 @@ void statistic3(){
             }
         }
     }
-
-
 }
 
 int main(){
