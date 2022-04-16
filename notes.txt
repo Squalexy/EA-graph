@@ -1,0 +1,4 @@
+- Node is disconnected
+- Two possible initial nodes
+- Two possible terminal nodes
+- Cycles
