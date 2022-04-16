@@ -17,42 +17,54 @@ vector<int> nodes_order;
 vector<int> dependencies;
 vector<int> dp;
 
+set<int>white;
+set<int>grey;
+set<int>black;
+int flag = 0;
 
-bool check_cycle_and_last_node(int node){
+bool check_last_node(){
 
     queue <int> Q; 
-
-    node_color[node] = 1;
-    Q.push(node);
+    Q.push(first_node);
 
     while (!Q.empty()){
 
-        int t = Q.front();
+        int node = Q.front();
         Q.pop();
-
-        for (auto u: graph[t].first){
+        
+        for (auto next_node: nodes[node]){
 
             // checks if there is more than 1 last node
-            if (!visited[u] && nodes[u].empty()) num_last_nodes++;
-
-            if (num_last_nodes > 1) return false;
-
-            if (node_color[u] == 0){
-                visited[u] = true;
-                node_color[u] = 1 - node_color[t];
-                Q.push(u);
+            if (!visited[next_node] ) {
+                if (nodes[next_node].empty()) num_last_nodes++;
+                visited[next_node] = true;
+                Q.push(next_node);
             }
 
-            // checks if there's a cycle
-            if (node_color[u] == node_color[t]) return false;
+            if (num_last_nodes > 1) return false;
         }
     }
+
     return true;
+}
+
+void check_cycle(int node){
+
+    white.erase(node);
+    grey.insert(node);
+    for (int next_node: nodes[node]){
+        if (white.find(next_node) != white.end()) check_cycle(next_node);
+        if (grey.find(next_node) != grey.end()) flag = 1;
+    }
+    black.insert(node);
+    grey.erase(node);
+
 }
 
 void statistic1(){
 
         nodes_order.push_back(first_node);
+        visited[first_node] = true;
         min_amount_time += graph[first_node].second;
 
         priority_queue <int, vector<int>, greater<int>> pQ(nodes[first_node].begin(), nodes[first_node].end());
@@ -162,6 +174,7 @@ int main(){
     nodes = vector<vector<int>>(N+1);
     parent_nodes = vector<vector<int>>(N+1);
     dependencies = vector<int>(N+1);
+    for (int i = 1; i <= N; i++) white.insert(i);
 
     for (int i = 1; i <= N; i++)
     {
@@ -174,6 +187,7 @@ int main(){
         {
             if (is_first_node)
             {
+                cout << "[ERROR] too many first nodes or node is disconnected" << endl;
                 cout << "INVALID" << endl;
                 return 0;
             }
@@ -196,8 +210,16 @@ int main(){
         }
     }
 
-    if (!check_cycle_and_last_node(first_node))
+    if (!check_last_node())
     {
+        cout << "[ERROR] too many last nodes" << endl;
+        cout << "INVALID" << endl;
+        return 0;
+    }
+
+    check_cycle(first_node);
+    if (flag == 1){
+        cout << "[ERROR] cycle" << endl;
         cout << "INVALID" << endl;
         return 0;
     }
