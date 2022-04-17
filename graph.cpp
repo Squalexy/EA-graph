@@ -1,7 +1,7 @@
 #include <bits/stdc++.h>
 using namespace std;
 
-int N, op_process_time, op_num_dependencies, num_operation, statistic, first_node, min_amount_time, best;
+int N, op_process_time, op_num_dependencies, num_operation, statistic, first_node, min_amount_time;
 
 bool is_first_node;
 
@@ -12,6 +12,7 @@ vector<vector<int>> parent_nodes;
 vector<int> nodes_order;
 vector<int> dp;
 vector<bool> is_on_stack;
+vector<int> bottlenecks;
 
 // set<int>white;
 // set<int>black;
@@ -19,6 +20,7 @@ vector<bool> is_on_stack;
 int flag = 0;
 int bottleneck_count = 0;
 int num_last_nodes = 0;
+int best = 0;
 
 bool check_last_node(){
 
@@ -47,7 +49,7 @@ bool check_last_node(){
     return true;
 }
 
-bool isCyclic(int node){
+bool is_cyclic(int node){
 
     if (!visited[node]){
 
@@ -55,9 +57,9 @@ bool isCyclic(int node){
         is_on_stack[node] = true;
 
         if(!nodes[node].empty()){
-            for (auto next_node: nodes[node]){
-                if (!visited[next_node] && isCyclic(next_node)) return true;
-                else if (is_on_stack[next_node]) return true;
+            for (auto neighbor: nodes[node]){
+                if (!visited[neighbor] && is_cyclic(neighbor)) return true;
+                else if (is_on_stack[neighbor]) return true;
             }
         }
     }
@@ -83,7 +85,7 @@ bool check_cycle(){
     */
 
    for (int i = 1; i <= N; i++){
-       if (!visited[i] && isCyclic(i)) return false;
+       if (is_cyclic(i)) return false;
    }
 
    return true;
@@ -91,131 +93,166 @@ bool check_cycle(){
 
 void statistic1(){
 
-        nodes_order.push_back(first_node);
-        visited[first_node] = true;
-        min_amount_time += graph[first_node].second;
+    vector <bool> is_in_queue(N+1);
+
+    nodes_order.push_back(first_node);
+    visited[first_node] = true;
+    min_amount_time += graph[first_node].second;
+
+    if (!nodes[first_node].empty()){
 
         priority_queue <int, vector<int>, greater<int>> pQ(nodes[first_node].begin(), nodes[first_node].end());
+        for (auto next_node: nodes[first_node]) {
+            visited[next_node] = true;
+            is_in_queue[next_node] = true;
+        }
 
         while (!pQ.empty()){
 
+            priority_queue <int, vector<int>, greater<int>> Q = pQ;
+
+            /*
+            cout << ":: ";
+            while (!Q.empty()){
+                cout << Q.top() << " <- ";
+                Q.pop();
+            }
+            cout << ":: " << endl;
+
+            */
+
             int node = pQ.top();
 
+            int flagstat1 = 1;
+
             if (parent_nodes[node].size() > 1){
+
+
                 for (int parent: parent_nodes[node]){
-                    if (!visited[parent]) {
+                    if (!visited[parent] || is_in_queue[parent]) {
                         visited[node] = false;
+                        is_in_queue[node] = false;
                         pQ.pop();
-                        node = pQ.top();
+                        flagstat1 = 0;
+                        break;
                     }
                 }
             }
 
+            if (flagstat1 == 0) continue;
+
             min_amount_time += graph[node].second;
             nodes_order.push_back(node);
+            is_in_queue[node] = false;
             pQ.pop();
 
             if (!nodes[node].empty()){
                 for (auto next_node: nodes[node]){
                     if (!visited[next_node]) {
                         pQ.push(next_node);
+                        is_in_queue[next_node] = true;
                         visited[next_node] = true;
                     }
                 }
             }
         }
+    }
 
-        cout << min_amount_time << endl;
-        for (int node: nodes_order) cout << node << endl;
-    
-        return;
+    cout << min_amount_time << endl;
+    for (int node: nodes_order) cout << node << endl;
+
+    return;
 }
 
 void statistic2(int node){
 
     visited[node] = true;
     dp[node] = graph[node].second;
+    
 
-    for (int next_node: nodes[node]){
-        if (!visited[next_node])statistic2(next_node);
-        dp[node] = max(dp[node], graph[node].second + dp[next_node]);
+    if (!nodes[node].empty()){
+
+        for (int next_node: nodes[node]){
+            if (!visited[next_node])statistic2(next_node);
+            dp[node] = max(dp[node], graph[node].second + dp[next_node]);
+        }
+
     }
-
+    
     best = max(best, dp[node]);
     return;
 }
 
 void statistic3(){
-    
-    queue <int> Q;
-    Q.push(first_node);
+
+    vector <bool> is_in_queue(N+1);
+    bottlenecks.push_back(first_node);
     visited[first_node] = true;
 
-    while (!Q.empty()){
+    if (!nodes[first_node].empty()){
 
-        /*
-        cout << ":: ";
-        queue <int> q2 = Q;
-        while(!q2.empty()){
-            cout << q2.front() << " <- ";
-            q2.pop();
-        }
-        cout << ":: " << endl;
-        */
-
-        int node = Q.front();
-
-        if (nodes[node].empty()) {
-            nodes_order.push_back(node);
-            return;
+        priority_queue <int, vector<int>, greater<int>> pQ(nodes[first_node].begin(), nodes[first_node].end());
+        for (auto next_node: nodes[first_node]) {
+            visited[next_node] = true;
+            is_in_queue[next_node] = true;
+            bottleneck_count++;
         }
 
-        if (parent_nodes[node].size() > 1) {
+        while (!pQ.empty()){
 
-            bottleneck_count -= parent_nodes[node].size();
+            
+            priority_queue <int, vector<int>, greater<int>> Q = pQ;
+            cout << ":: ";
+            while (!Q.empty()){
+                cout << Q.top() << " <- ";
+                Q.pop();
+            }
+            cout << ":: " << endl;
+            
 
-            if (bottleneck_count != 0){
+            int node = pQ.top();
+            int flagstat1 = 1;
 
-                int aux_flag = 0;
+            if (parent_nodes[node].size() > 1){
 
-                if (nodes[node].size() > 0){
-                    for (auto next_node: nodes[node]){
-                        if (!visited[next_node]){
-                            bottleneck_count += parent_nodes[node].size();
-                            Q.push(node);
-                            Q.pop();
-                            flag = 1;
-                            break;
-                        }
+                for (int parent: parent_nodes[node]){
+                    if (!visited[parent] || is_in_queue[parent]) {
+                        visited[node] = false;
+                        is_in_queue[node] = false;
+                        pQ.pop();
+                        flagstat1 = 0;
+                        break;
                     }
                 }
-
-                if (aux_flag == 1) continue;
             }
-        }
 
-        if (bottleneck_count == 0 && Q.size() == 1) nodes_order.push_back(node);
+            if (flagstat1 == 0) continue;
 
-        if (!nodes[node].empty()){
-            if (nodes[node].size() > 1) bottleneck_count += nodes[node].size();
-        }
+            for (int parent: parent_nodes[node]){
+                if (visited[parent] && !is_in_queue[parent]) bottleneck_count --;
+            }
 
-        Q.pop();
+            is_in_queue[node] = false;
+            pQ.pop();
 
-        if (!nodes[node].empty()){
-            for (auto next_node: nodes[node]){
-                if (!visited[next_node]){
-                    Q.push(next_node);
-                    visited[next_node] = true;
+            cout << "[bottleneck count] " << bottleneck_count << endl;
+            if (bottleneck_count == 0 && pQ.empty()) bottlenecks.push_back(node);
+
+            if (!nodes[node].empty()){
+                for (auto next_node: nodes[node]){
+                    if (!visited[next_node]) {
+                        pQ.push(next_node);
+                        is_in_queue[next_node] = true;
+                        visited[next_node] = true;
+                    }
+                    bottleneck_count++;
                 }
             }
         }
     }
 
     return;
-
 }
-
 int main(){
 
     cin >> N;
@@ -301,8 +338,10 @@ int main(){
             }
 
             else if (statistic == 3){
+                bottlenecks = vector<int>();
                 statistic3();
-                for (int bottleneck: nodes_order) cout << bottleneck << endl;
+
+                for (int bottleneck: bottlenecks) cout << bottleneck << endl;
                 return 0;
             }
         }
