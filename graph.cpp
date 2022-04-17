@@ -5,22 +5,20 @@ int N, op_process_time, op_num_dependencies, num_operation, statistic, first_nod
 
 bool is_first_node;
 
-int num_last_nodes = 0;
-
 map<int, pair<vector<int>, int>> graph;
-vector<int> node_color;
 vector<bool> visited;
 vector<vector<int>> nodes;
 vector<vector<int>> parent_nodes;
-vector<int> bottlenecks;
 vector<int> nodes_order;
-vector<int> dependencies;
 vector<int> dp;
+vector<bool> is_on_stack;
 
-set<int>white;
-set<int>grey;
-set<int>black;
+// set<int>white;
+// set<int>black;
+
 int flag = 0;
+int bottleneck_count = 0;
+int num_last_nodes = 0;
 
 bool check_last_node(){
 
@@ -32,33 +30,63 @@ bool check_last_node(){
         int node = Q.front();
         Q.pop();
         
-        for (auto next_node: nodes[node]){
+        if (!nodes[node].empty()){
+            for (auto next_node: nodes[node]){
 
-            // checks if there is more than 1 last node
-            if (!visited[next_node] ) {
-                if (nodes[next_node].empty()) num_last_nodes++;
-                visited[next_node] = true;
-                Q.push(next_node);
+                if (!visited[next_node] ) {
+                    if (nodes[next_node].empty()) num_last_nodes++;
+                    visited[next_node] = true;
+                    Q.push(next_node);
+                }
+
+                if (num_last_nodes > 1) return false;
             }
-
-            if (num_last_nodes > 1) return false;
         }
     }
 
     return true;
 }
 
-void check_cycle(int node){
+bool isCyclic(int node){
 
-    white.erase(node);
-    grey.insert(node);
-    for (int next_node: nodes[node]){
-        if (white.find(next_node) != white.end()) check_cycle(next_node);
-        if (grey.find(next_node) != grey.end()) flag = 1;
+    if (!visited[node]){
+
+        visited[node] = true;
+        is_on_stack[node] = true;
+
+        if(!nodes[node].empty()){
+            for (auto next_node: nodes[node]){
+                if (!visited[next_node] && isCyclic(next_node)) return true;
+                else if (is_on_stack[next_node]) return true;
+            }
+        }
     }
-    black.insert(node);
-    grey.erase(node);
 
+    is_on_stack[node] = false;
+    return false;
+}
+
+bool check_cycle(){
+
+    /*
+    white.erase(node);
+    black.insert(node);
+
+    if (!nodes[node].empty()){
+        for (int next_node: nodes[node]){
+            if (white.find(next_node) != white.end()) check_cycle(next_node);
+            if (black.find(next_node) != black.end()) flag = 1;
+        }
+    }
+
+    black.erase(node);
+    */
+
+   for (int i = 1; i <= N; i++){
+       if (!visited[i] && isCyclic(i)) return false;
+   }
+
+   return true;
 }
 
 void statistic1(){
@@ -68,7 +96,6 @@ void statistic1(){
         min_amount_time += graph[first_node].second;
 
         priority_queue <int, vector<int>, greater<int>> pQ(nodes[first_node].begin(), nodes[first_node].end());
-        for (int node: nodes[first_node]) visited[node] = true;
 
         while (!pQ.empty()){
 
@@ -88,10 +115,12 @@ void statistic1(){
             nodes_order.push_back(node);
             pQ.pop();
 
-            for (auto next_node: nodes[node]){
-                if (!visited[next_node]) {
-                    pQ.push(next_node);
-                    visited[next_node] = true;
+            if (!nodes[node].empty()){
+                for (auto next_node: nodes[node]){
+                    if (!visited[next_node]) {
+                        pQ.push(next_node);
+                        visited[next_node] = true;
+                    }
                 }
             }
         }
@@ -124,44 +153,67 @@ void statistic3(){
 
     while (!Q.empty()){
 
+        /*
+        cout << ":: ";
+        queue <int> q2 = Q;
+        while(!q2.empty()){
+            cout << q2.front() << " <- ";
+            q2.pop();
+        }
+        cout << ":: " << endl;
+        */
+
         int node = Q.front();
-        long unsigned int visited_parents = 0;
-        int aux_node;
- 
-        if (parent_nodes[node].size() > 1){
-            
-            for (int parent: parent_nodes[node]){
-                if (!visited[parent]) {
-                    visited[node] = false;
+
+        if (nodes[node].empty()) {
+            nodes_order.push_back(node);
+            return;
+        }
+
+        if (parent_nodes[node].size() > 1) {
+
+            bottleneck_count -= parent_nodes[node].size();
+
+            if (bottleneck_count != 0){
+
+                int aux_flag = 0;
+
+                if (nodes[node].size() > 0){
+                    for (auto next_node: nodes[node]){
+                        if (!visited[next_node]){
+                            bottleneck_count += parent_nodes[node].size();
+                            Q.push(node);
+                            Q.pop();
+                            flag = 1;
+                            break;
+                        }
+                    }
                 }
 
-                else if (visited[parent]) visited_parents ++;
+                if (aux_flag == 1) continue;
             }
-
-            if (Q.size() == 1 && visited_parents == parent_nodes[node].size()) bottlenecks.push_back(node);
         }
 
-        else if (parent_nodes[node].size() == 1){
-            if (Q.size() == 1) bottlenecks.push_back(node);
+        if (bottleneck_count == 0 && Q.size() == 1) nodes_order.push_back(node);
+
+        if (!nodes[node].empty()){
+            if (nodes[node].size() > 1) bottleneck_count += nodes[node].size();
         }
 
-        if (visited[node] == false){
-            aux_node = node;
-            Q.pop();
-            node = Q.front();
-            Q.push(aux_node);
-            continue;
-        }
+        Q.pop();
 
-        else Q.pop();
-
-        for (auto next_node: nodes[node]){
-            if (!visited[next_node]) {
-                Q.push(next_node);
-                visited[next_node] = true;
+        if (!nodes[node].empty()){
+            for (auto next_node: nodes[node]){
+                if (!visited[next_node]){
+                    Q.push(next_node);
+                    visited[next_node] = true;
+                }
             }
         }
     }
+
+    return;
+
 }
 
 int main(){
@@ -169,25 +221,24 @@ int main(){
     cin >> N;
 
     is_first_node = false;
-    node_color = vector<int>(N+1, 0);
     visited = vector<bool>(N+1, false);
     nodes = vector<vector<int>>(N+1);
     parent_nodes = vector<vector<int>>(N+1);
-    dependencies = vector<int>(N+1);
-    for (int i = 1; i <= N; i++) white.insert(i);
+    is_on_stack =  vector<bool>(N+1, false);
+    
+    // for (int i = 1; i <= N; i++) white.insert(i);
 
     for (int i = 1; i <= N; i++)
     {
         cin >> op_process_time >> op_num_dependencies;
         graph[i].second = op_process_time;
-        dependencies[i] = op_num_dependencies;
 
         // ------- INVALID OPERATION: more than 1 first node or node is disconnected ------- //
         if (op_num_dependencies == 0)
         {
             if (is_first_node)
             {
-                cout << "[ERROR] too many first nodes or node is disconnected" << endl;
+                // cout << "[ERROR] too many first nodes or node is disconnected" << endl;
                 cout << "INVALID" << endl;
                 return 0;
             }
@@ -212,43 +263,47 @@ int main(){
 
     if (!check_last_node())
     {
-        cout << "[ERROR] too many last nodes" << endl;
+        // cout << "[ERROR] too many last nodes" << endl;
         cout << "INVALID" << endl;
         return 0;
     }
 
-    check_cycle(first_node);
-    if (flag == 1){
-        cout << "[ERROR] cycle" << endl;
+    visited = vector<bool>(N+1, false);
+    if (!check_cycle()){
+        //cout << "[ERROR] cycle" << endl;
         cout << "INVALID" << endl;
         return 0;
     }
 
     else{
+
         cin >> statistic;
+
         if (statistic == 0) {
             cout << "VALID" << endl;
             return 0;
         }
         
         else {
+
             min_amount_time = 0;
-            bottlenecks = vector<int>();
             nodes_order = vector<int>();
             visited = vector<bool>(N+1, false);
-            dp = vector<int>(N+1);
-            bottlenecks.push_back(first_node);
+            parent_nodes[first_node].push_back(0);
 
             if (statistic == 1) statistic1();
 
             else if (statistic == 2) {
+                dp = vector<int>(N+1);
                 statistic2(first_node);
                 cout << best << endl;
+                return 0;
             }
 
             else if (statistic == 3){
                 statistic3();
-                for (int bottleneck: bottlenecks) cout << bottleneck << endl;
+                for (int bottleneck: nodes_order) cout << bottleneck << endl;
+                return 0;
             }
         }
     }
